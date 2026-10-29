@@ -1,4 +1,11 @@
 /**
+ * What the chain passes around: a `fetch`-shaped call. Not `typeof fetch`, which a runtime may widen — Bun's
+ * also carries `fetch.preconnect`, and a plain arrow function (every interceptor) cannot satisfy that. The real
+ * `fetch` of any runtime still fits here.
+ */
+export type Transport = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
+
+/**
  * Wraps the next transport in the chain and returns the wrapper.
  *
  * Call `next` to continue, skip it to short-circuit, call it more than once to retry. Never mutate
@@ -16,7 +23,7 @@
  * }
  * ```
  */
-export type FetchInterceptor = (next: typeof fetch) => typeof fetch
+export type FetchInterceptor = (next: Transport) => Transport
 
 /**
  * A `fetch` with an interceptor chain, plus the helpers an interceptor needs.
@@ -43,7 +50,7 @@ export abstract class FetchClient {
    * const client = rest(() => `${sitePath}/products`, api.fetch)
    * ```
    */
-  fetch!: typeof fetch
+  fetch!: Transport
 
   /**
    * Register an interceptor. First registered ends up outermost — it sees the request first and the
@@ -134,12 +141,12 @@ export const withHeader = (init: RequestInit | undefined, name: string, value: s
  * await client.fetch('/api/v2/products/123')
  * ```
  */
-export const createFetch = (base: typeof fetch = fetch): FetchClient => {
+export const createFetch = (base: Transport = fetch): FetchClient => {
   const interceptors: FetchInterceptor[] = []
   // composed per call rather than at registration: a consumer registers its interceptor during its own
   // setup, which runs after other consumers have already captured `fetch`
-  const doFetch: typeof fetch = (input, init) =>
-    interceptors.reduceRight<typeof fetch>((next, interceptor) => interceptor(next), base)(input, init)
+  const doFetch: Transport = (input, init) =>
+    interceptors.reduceRight<Transport>((next, interceptor) => interceptor(next), base)(input, init)
   return {
     fetch: doFetch,
     use: interceptor => void interceptors.push(interceptor),

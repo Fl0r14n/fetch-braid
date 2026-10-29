@@ -1,3 +1,4 @@
+import type { Transport } from './fetch'
 import { flatten } from './util'
 
 /**
@@ -228,7 +229,7 @@ export interface RestClient {
  * await orders.get('300938', { params: { page: 2 } })
  * ```
  */
-export const rest = (endpoint: string | (() => string), doFetch: typeof fetch = fetch): RestClient => {
+export const rest = (endpoint: string | (() => string), doFetch: Transport = fetch): RestClient => {
   const base = (typeof endpoint === 'function' && endpoint) || (() => endpoint as string)
   const request = async <T>(method: string, url: string, body?: unknown, options?: RequestOptions): Promise<T> => {
     const headers = new Headers()
